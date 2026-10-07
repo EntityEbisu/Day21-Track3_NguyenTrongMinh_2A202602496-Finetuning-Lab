@@ -1,0 +1,91 @@
+
+[  ok  ] labkit imports                                   
+[  ok  ] tier resolves                                    T4 -> unsloth/Qwen3.5-4B
+[  ok  ] all tiers respect the <32 effective-batch rule   
+[  ok  ] data/train_seed.jsonl                            250 rows
+[  ok  ] data/eval_target.jsonl                           50 rows
+[  ok  ] data/eval_regression.jsonl                       15 rows
+[  ok  ] unit tests                                       119 passed in 2.74s
+[  ok  ] results/template_check.json                      
+[  ok  ] results/mask_proof.json                          
+[  ok  ] results/token_stats.json                         
+[  ok  ] results/baselines_frozen.json                    
+[  ok  ] results/runs.csv                                 
+[  ok  ] results/verdict.json                             
+[  ok  ] results/autopsy.json                             
+[  ok  ] submission/REPORT.md                             
+[ FAIL ] REPORT.md filled in                              6 placeholders still present (<điền>, <paste>, ...) — this is still the template
+[  ok  ] mask proof asserts                               
+[ FAIL ] full eval set used                               EVAL_LIMIT=8 — this run scored 8 target items, not the full set. Smoke mode is for iterating; unset EVAL_LIMIT and re-run NB2+NB5 to submit.
+[  ok  ] baseline (b) prompt unmodified                   
+[  ok  ] baseline (b) beats (a)                           (a)=0.000 -> (b)=0.688
+[  ok  ] eval sets unmodified                             
+[  ok  ] NB3 run present                                  
+[  ok  ] NB4 contrast runs                                
+[  ok  ] all runs share ONE step budget                   ['attn_only', 'correct', 'qlora', 'wrong_lr'] at 30 steps
+[  ok  ] attn_only is a FAIR contrast                     32,456,704 vs 32,464,896 trainable params
+[  ok  ] verdict recorded                                 PASSED (target Δ +0.250, regression Δ +0.000)
+
+24 passed · 0 warnings · 2 failures
+
+Not ready to submit — fix the FAILs above.
+
+================ results/ ================
+total 40
+drwxr-xr-x  2 root root 4096 Oct  7 03:31 .
+drwxr-xr-x 15 root root 4096 Oct  7 02:54 ..
+-rw-r--r--  1 root root  435 Oct  7 03:31 autopsy.json
+-rw-r--r--  1 root root  480 Oct  7 02:58 baselines_frozen.json
+-rw-r--r--  1 root root    0 Oct  7 02:53 .gitkeep
+-rw-r--r--  1 root root  592 Oct  7 02:54 mask_proof.json
+-rw-r--r--  1 root root 2206 Oct  7 03:31 qualitative.json
+-rw-r--r--  1 root root 1095 Oct  7 03:27 runs.csv
+-rw-r--r--  1 root root  277 Oct  7 02:54 template_check.json
+-rw-r--r--  1 root root  115 Oct  7 02:54 token_stats.json
+-rw-r--r--  1 root root  751 Oct  7 03:28 verdict.json
+
+---- runs.csv ----
+run,label,tier,model,precision,placement,n_target_modules,r,lora_alpha,learning_rate,load_in_4bit,trainable_params,train_seconds,peak_vram_gb,final_loss,mask_mode,max_steps,teaches
+correct,all-linear · r=16 · LR 10x · 16-bit,T4,unsloth/Qwen3.5-4B,fp16,text-linear,12,16,32,0.0001,False,32464896,391.4,8.78,0.6274,assistant-only,30,
+attn_only,"q,v only · r=matched · LR 10x · 16-bit",T4,unsloth/Qwen3.5-4B,fp16,attn-only,2,283,566,0.0001,False,32456704,258.5,8.79,0.538,,30,"Mistake #1 (§11.2): attention-only placement, rank raised to *match parameter count*. If rank were the lever, this would win."
+wrong_lr,all-linear · r=16 · LR 1x (full-FT scale) · 16-bit,T4,unsloth/Qwen3.5-4B,fp16,text-linear,12,16,32,1e-05,False,32464896,396.9,8.78,1.5702,,30,Mistake #2 (§11.3): a full-fine-tune learning rate applied to LoRA.
+qlora,all-linear · r=16 · LR 10x · 4-bit QLoRA,T4,unsloth/Qwen3.5-4B,fp16,text-linear,12,16,32,0.0001,True,32464896,468.7,3.86,0.7058,,30,The vendor says do NOT use QLoRA on Qwen3.5 (§13). Measure the cost yourself instead of taking either side on faith.
+
+---- verdict.json ----
+{
+  "comparison": [
+    {
+      "run": "(a) base + naive prompt",
+      "target": 0.0,
+      "regression": 0.75,
+      "format": 0.0,
+      "latency_ms": 3374.2,
+      "n": 8
+    },
+    {
+      "run": "(b) base + optimized prompt",
+      "target": 0.6875,
+      "regression": 0.75,
+      "format": 1.0,
+      "latency_ms": 936.9,
+      "n": 8
+    },
+    {
+      "run": "(c) LoRA fine-tune",
+      "target": 0.9375,
+      "regression": 0.75,
+      "format": 1.0,
+      "latency_ms": 1476.4,
+      "n": 8
+    }
+  ],
+  "verdict": {
+    "passed": true,
+    "reasons": [
+      "beat the optimized-prompt baseline by +0.250 with +0.000 general-capability change."
+    ],
+    "target_delta": 0.25,
+    "regression_delta": 0.0
+  },
+  "valid_trace_rate": 0.0
+}
