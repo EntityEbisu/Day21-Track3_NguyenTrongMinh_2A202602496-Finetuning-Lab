@@ -20,15 +20,24 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_runs_table_matches_runs_csv():
-    from tools.report_tables import runs_table
+    """The table must carry every run's numbers -- as collapsed by load_results().
 
-    rows = list(csv.DictReader((RESULTS / "runs.csv").open(encoding="utf-8")))
-    md = runs_table()
-    for r in rows:
+    Reading runs.csv raw would include the superseded `correct` row from a resumed
+    session and demand a number the table correctly does not show.
+    """
+    from tools import report_tables
+
+    data = report_tables.load_results(RESULTS)
+    md = report_tables.runs_table(data)
+    for r in data["runs"]:
         assert r["run"] in md
         assert str(r["final_loss"]) in md, f"{r['run']} final_loss missing"
         assert str(r["peak_vram_gb"]) in md, f"{r['run']} peak_vram_gb missing"
         assert str(r["trainable_params"]) in md, f"{r['run']} trainable_params missing"
+
+    # And the raw file must still be readable (the collapse is a view, not a rewrite).
+    raw = list(csv.DictReader((RESULTS / "runs.csv").open(encoding="utf-8")))
+    assert len(raw) >= len(data["runs"]), "collapsing must not invent rows"
 
 
 def test_baseline_table_matches_verdict_json():

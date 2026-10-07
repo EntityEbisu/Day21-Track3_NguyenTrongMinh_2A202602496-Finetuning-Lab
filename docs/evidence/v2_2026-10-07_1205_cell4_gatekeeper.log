@@ -1,0 +1,93 @@
+
+[  ok  ] labkit imports                                   
+[  ok  ] tier resolves                                    T4 -> unsloth/Qwen3.5-4B
+[  ok  ] all tiers respect the <32 effective-batch rule   
+[  ok  ] data/train_seed.jsonl                            250 rows
+[  ok  ] data/eval_target.jsonl                           50 rows
+[  ok  ] data/eval_regression.jsonl                       15 rows
+[  ok  ] unit tests                                       119 passed in 2.37s
+[  ok  ] results/template_check.json                      
+[  ok  ] results/mask_proof.json                          
+[  ok  ] results/token_stats.json                         
+[  ok  ] results/baselines_frozen.json                    
+[  ok  ] results/runs.csv                                 
+[  ok  ] results/verdict.json                             
+[  ok  ] results/autopsy.json                             
+[  ok  ] submission/REPORT.md                             
+[ FAIL ] REPORT.md filled in                              6 placeholders still present (<điền>, <paste>, ...) — this is still the template
+[  ok  ] mask proof asserts                               
+[  ok  ] full eval set used                               50 target items
+[  ok  ] baseline (b) prompt unmodified                   
+[  ok  ] baseline (b) beats (a)                           (a)=0.000 -> (b)=0.765
+[  ok  ] eval sets unmodified                             
+[  ok  ] NB3 run present                                  
+[  ok  ] NB4 contrast runs                                
+[  ok  ] all runs share ONE step budget                   ['attn_only', 'correct', 'qlora', 'wrong_lr'] at 30 steps
+[  ok  ] attn_only is a FAIR contrast                     32,456,704 vs 32,464,896 trainable params
+[  ok  ] verdict recorded                                 FAILED (target Δ +0.205, regression Δ -0.202)
+[ warn ] note                                             A FAILED verdict is fully gradeable — analyse it honestly in REPORT.md rather than loosening the gate.
+
+25 passed · 1 warnings · 1 failures
+
+Not ready to submit — fix the FAILs above.
+
+================ results/ ================
+total 52
+drwxr-xr-x  2 root root  4096 Oct  7 03:31 .
+drwxr-xr-x 15 root root  4096 Oct  7 02:54 ..
+-rw-r--r--  1 root root   433 Oct  7 04:52 autopsy.json
+-rw-r--r--  1 root root   516 Oct  7 04:33 baselines_frozen.json
+-rw-r--r--  1 root root     0 Oct  7 02:53 .gitkeep
+-rw-r--r--  1 root root   592 Oct  7 04:27 mask_proof.json
+-rw-r--r--  1 root root 13677 Oct  7 04:52 qualitative.json
+-rw-r--r--  1 root root  1250 Oct  7 04:40 runs.csv
+-rw-r--r--  1 root root   277 Oct  7 04:27 template_check.json
+-rw-r--r--  1 root root   115 Oct  7 04:27 token_stats.json
+-rw-r--r--  1 root root   804 Oct  7 04:44 verdict.json
+
+---- runs.csv ----
+run,label,tier,model,precision,placement,n_target_modules,r,lora_alpha,learning_rate,load_in_4bit,trainable_params,train_seconds,peak_vram_gb,final_loss,mask_mode,max_steps,teaches
+correct,all-linear · r=16 · LR 10x · 16-bit,T4,unsloth/Qwen3.5-4B,fp16,text-linear,12,16,32,0.0001,False,32464896,391.4,8.78,0.6274,assistant-only,30,
+attn_only,"q,v only · r=matched · LR 10x · 16-bit",T4,unsloth/Qwen3.5-4B,fp16,attn-only,2,283,566,0.0001,False,32456704,258.5,8.79,0.538,,30,"Mistake #1 (§11.2): attention-only placement, rank raised to *match parameter count*. If rank were the lever, this would win."
+wrong_lr,all-linear · r=16 · LR 1x (full-FT scale) · 16-bit,T4,unsloth/Qwen3.5-4B,fp16,text-linear,12,16,32,1e-05,False,32464896,396.9,8.78,1.5702,,30,Mistake #2 (§11.3): a full-fine-tune learning rate applied to LoRA.
+qlora,all-linear · r=16 · LR 10x · 4-bit QLoRA,T4,unsloth/Qwen3.5-4B,fp16,text-linear,12,16,32,0.0001,True,32464896,468.7,3.86,0.7058,,30,The vendor says do NOT use QLoRA on Qwen3.5 (§13). Measure the cost yourself instead of taking either side on faith.
+correct,all-linear · r=16 · LR 10x · 16-bit,T4,unsloth/Qwen3.5-4B,fp16,text-linear,12,16,32,0.0001,False,32464896,389.9,8.78,0.6255,assistant-only,30,
+
+---- verdict.json ----
+{
+  "comparison": [
+    {
+      "run": "(a) base + naive prompt",
+      "target": 0.0,
+      "regression": 0.7911,
+      "format": 0.0,
+      "latency_ms": 3273.6,
+      "n": 50
+    },
+    {
+      "run": "(b) base + optimized prompt",
+      "target": 0.765,
+      "regression": 0.7911,
+      "format": 1.0,
+      "latency_ms": 1043.2,
+      "n": 50
+    },
+    {
+      "run": "(c) LoRA fine-tune",
+      "target": 0.97,
+      "regression": 0.5889,
+      "format": 1.0,
+      "latency_ms": 1373.8,
+      "n": 50
+    }
+  ],
+  "verdict": {
+    "passed": false,
+    "reasons": [
+      "general capability regressed by 0.202 (tolerance 0.020). See deck §6.3 — add 1-5% replay data."
+    ],
+    "target_delta": 0.20499999999999996,
+    "regression_delta": -0.2022222222222222
+  },
+  "valid_trace_rate": 0.0
+}

@@ -1,0 +1,372 @@
+Tesla T4 (cuda, sm_75, 14.6 GB) -> precision=fp16
+  note: this GPU predates Ampere, so it has NO bfloat16. Using fp16 with gradient scaling instead. Tutorials that hardcode bf16=True fail here. 
+
+tier=T4  mask=assistant-only  eval_limit=full
+
+========================================================================
+NB1 — data, chat template & loss mask
+========================================================================
+tier=T4  model=unsloth/Qwen3.5-4B  max_length=1024
+250 mẫu huấn luyện
+{
+  "instruction": "Phân loại ticket chăm sóc khách hàng sau thành JSON với đúng 4 khóa: intent, urgency, product, sentiment. Chỉ trả về JSON, không giải thích.\n\nintent thuộc: doi_tra | van_chuyen | hoan_tien | san_pham_loi | hoi_thong_tin\nurgency thuộc: cao | trung_binh | thap\nsentiment thuộc: tieu_cuc | trung_tinh | tich_cuc\nproduct: tên sản phẩm xuất hiện trong ticket.",
+  "input": "Alo sh
+eos_token: <|im_end|>
+VERDICT: reasoning preserved — safe to train on traces
+
+--- chuỗi đã render ---
+<|im_start|>user
+2+2?<|im_end|>
+<|im_start|>assistant
+<think>
+buoc 1: kiem tra. buoc 2: tra loi.
+</think>
+
+4<|im_end|>
+
+======================================================================
+mode = assistant-only   supervised 39/94 (41%)
+--- LOSS TÍNH TRÊN ĐOẠN NÀY ---
+</think>
+
+{"intent": "doi_tra", "urgency": "trung_binh", "product": "balo laptop", "sentiment": "trung_tinh"}<|im_end|>
+
+======================================================================
+mode = everything   supervised 94/94 (100%)
+--- LOSS TÍNH TRÊN ĐOẠN NÀY ---
+<|im_start|>system
+Phân loại ticket sau.<|im_end|>
+<|im_start|>user
+Alo shop, mình đặt balo laptop mã đơn VN411453. Cho tôi trả lại. Đã 3 ngày rồi. Cho tôi hỏi.<|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+
+{"intent": "doi_tra", "urgency": "trung_binh", "product": "balo laptop", "sentiment": "trung_tinh"}<|im_end|>
+
+{
+  "mask_mode": "assistant-only",
+  "n_supervised": 39,
+  "n_total": 94,
+  "supervised_fraction": 0.4149,
+  "answer_is_supervised": true,
+  "question_is_masked": true
+}
+{
+  "n": 250,
+  "mean": 93.1,
+  "p50": 93,
+  "p95": 98,
+  "p99": 100,
+  "max": 101,
+  "suggested_max_length": 256
+}
+
+⚠ p95 gợi ý max_length=256 nhưng tier đang đặt 1024. Ghi lại lựa chọn của bạn trong REPORT.md.
+train=225  val=25  -> /content/Day21-Track3-Finetuning-Lab/data/split
+
+-- NB1 ok in 11s
+
+========================================================================
+NB2 — freeze eval + three baselines
+========================================================================
+target=50  regression=15  tier=T4
+Loading weights: 100% 426/426 [00:32<00:00, 13.05it/s]
+[transformers] `causal_conv1d_fn` is falling back to its reference PyTorch implementation because `causal_conv1d` is not installed. This is correct but much slower; install `causal_conv1d` for the optimized kernel.
+[transformers] `chunk_gated_delta_rule` is falling back to its reference PyTorch implementation because `flash-linear-attention` is not installed. This is correct but much slower; install `flash-linear-attention` for the optimized kernel.
+[transformers] `causal_conv1d_update` is falling back to its reference PyTorch implementation because `causal_conv1d` is not installed. This is correct but much slower; install `causal_conv1d` for the optimized kernel.
+[transformers] `fused_recurrent_gated_delta_rule` is falling back to its reference PyTorch implementation because `flash-linear-attention` is not installed. This is correct but much slower; install `flash-linear-attention` for the optimized kernel.
+  [(a) base + naive prompt/target] batch 1/13     14s elapsed  ~  165s left
+  [(a) base + naive prompt/target] batch 2/13     26s elapsed  ~  144s left
+  [(a) base + naive prompt/target] batch 3/13     39s elapsed  ~  129s left
+  [(a) base + naive prompt/target] batch 4/13     51s elapsed  ~  115s left
+  [(a) base + naive prompt/target] batch 5/13     64s elapsed  ~  102s left
+  [(a) base + naive prompt/target] batch 6/13     76s elapsed  ~   89s left
+  [(a) base + naive prompt/target] batch 7/13     89s elapsed  ~   76s left
+  [(a) base + naive prompt/target] batch 8/13    101s elapsed  ~   63s left
+  [(a) base + naive prompt/target] batch 9/13    114s elapsed  ~   51s left
+  [(a) base + naive prompt/target] batch 10/13    126s elapsed  ~   38s left
+  [(a) base + naive prompt/target] batch 11/13    139s elapsed  ~   25s left
+  [(a) base + naive prompt/target] batch 12/13    151s elapsed  ~   13s left
+  [(a) base + naive prompt/target] batch 13/13    164s elapsed  ~    0s left
+  [(a) base + naive prompt/target] done: 50 prompts in 164s
+  [(a) base + naive prompt/regression] batch 1/4      5s elapsed  ~   15s left
+  [(a) base + naive prompt/regression] batch 2/4     13s elapsed  ~   13s left
+  [(a) base + naive prompt/regression] batch 3/4     20s elapsed  ~    7s left
+  [(a) base + naive prompt/regression] batch 4/4     28s elapsed  ~    0s left
+  [(a) base + naive prompt/regression] done: 15 prompts in 28s
+(a) base + naive prompt      target=0.000  regression=0.791  format=0.000  3274ms
+  [(b) base + optimized prompt/target] batch 1/13      4s elapsed  ~   49s left
+  [(b) base + optimized prompt/target] batch 2/13      8s elapsed  ~   46s left
+  [(b) base + optimized prompt/target] batch 3/13     12s elapsed  ~   41s left
+  [(b) base + optimized prompt/target] batch 4/13     16s elapsed  ~   36s left
+  [(b) base + optimized prompt/target] batch 5/13     20s elapsed  ~   33s left
+  [(b) base + optimized prompt/target] batch 6/13     24s elapsed  ~   28s left
+  [(b) base + optimized prompt/target] batch 7/13     28s elapsed  ~   24s left
+  [(b) base + optimized prompt/target] batch 8/13     32s elapsed  ~   20s left
+  [(b) base + optimized prompt/target] batch 9/13     36s elapsed  ~   16s left
+  [(b) base + optimized prompt/target] batch 10/13     40s elapsed  ~   12s left
+  [(b) base + optimized prompt/target] batch 11/13     45s elapsed  ~    8s left
+  [(b) base + optimized prompt/target] batch 12/13     48s elapsed  ~    4s left
+  [(b) base + optimized prompt/target] batch 13/13     52s elapsed  ~    0s left
+  [(b) base + optimized prompt/target] done: 50 prompts in 52s
+  [(b) base + optimized prompt/regression] batch 1/4      5s elapsed  ~   16s left
+  [(b) base + optimized prompt/regression] batch 2/4     13s elapsed  ~   13s left
+  [(b) base + optimized prompt/regression] batch 3/4     20s elapsed  ~    7s left
+  [(b) base + optimized prompt/regression] batch 4/4     28s elapsed  ~    0s left
+  [(b) base + optimized prompt/regression] done: 15 prompts in 28s
+(b) base + optimized prompt  target=0.765  regression=0.791  format=1.000  1043ms
+{
+  "tier": "T4",
+  "model": "unsloth/Qwen3.5-4B",
+  "baseline_a": {
+    "target": 0.0,
+    "regression": 0.7911111111111111,
+    "format": 0.0,
+    "latency_ms": 3273.6263881400378,
+    "n": 50,
+    "extra": {}
+  },
+  "baseline_b": {
+    "target": 0.765,
+    "regression": 0.7911111111111111,
+    "format": 1.0,
+    "latency_ms": 1043.1848367400016,
+    "n": 50,
+    "extra": {}
+  },
+  "optimized_prompt_sha": "719e74d3b6232053",
+  "n_target": 50,
+  "n_regression": 15,
+  "eval_limit": null,
+  "smoke_mode": false
+}
+
+-- NB2 ok in 319s
+
+========================================================================
+NB3 — train the correct configuration
+========================================================================
+T4 · unsloth/Qwen3.5-4B · all-linear · r=16 · LR 10x · 16-bit
+Tesla T4 (cuda, sm_75, 14.6 GB) -> precision=fp16
+  note: this GPU predates Ampere, so it has NO bfloat16. Using fp16 with gradient scaling instead. Tutorials that hardcode bf16=True fail here.
+Loading weights: 100% 426/426 [00:32<00:00, 13.25it/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+{
+  "num_hidden_layers": 32,
+  "full_attention_interval": 4,
+  "linear_num_key_heads": 16,
+  "layer_types": {
+    "linear_attention": 24,
+    "full_attention": 8
+  }
+}
+placement=text-linear  modules=['down_proj', 'gate_proj', 'in_proj_a', 'in_proj_b', 'in_proj_qkv', 'in_proj_z', 'k_proj', 'o_proj', 'out_proj', 'q_proj', 'up_proj', 'v_proj']
+trainable LoRA params ≈ 32.46 M
+    {'placement': 'text-linear', 'modules': 12, 'r': 16, 'trainable': 32464896}
+    {'placement': 'attn-only(q,v)', 'modules': 2, 'r': 16, 'trainable': 1835008}
+    {'placement': 'attn-only(q,v) matched', 'modules': 2, 'r': 283, 'trainable': 32456704}
+Dataset({
+    features: ['input_ids', 'labels', 'attention_mask'],
+    num_rows: 225
+})
+mask_mode = assistant-only   supervised 9014/20951 tokens (43.0%)
+epochs=2.0  ->  30 optimizer steps  (NB4 runs its contrasts at exactly this many)
+{
+  "output_dir": "/content/Day21-Track3-Finetuning-Lab/adapters/correct",
+  "max_length": "1024",
+  "per_device_train_batch_size": "1",
+  "gradient_accumulation_steps": "16",
+  "learning_rate": "0.0001",
+  "lr_scheduler_type": "cosine",
+  "num_train_epochs": "2.0",
+  "logging_steps": "5",
+  "save_strategy": "no",
+  "report_to": "none",
+  "seed": "42",
+  "packing": "False",
+  "loss_type": "chunked_nll",
+  "gradient_checkpointing": "True",
+  "warmup_steps": "3",
+  "bf16": "False",
+  "fp16": "True",
+  "padding_free": "False"
+}
+Truncating train dataset: 100% 225/225 [00:00<00:00, 9907.60 examples/s]
+Dropping fully masked examples from train dataset: 100% 225/225 [00:00<00:00, 49860.96 examples/s]
+precision fix: {'precision': 'fp16', 'recast': 0, 'trainable_tensors': 496}
+[transformers] The tokenizer has new PAD/BOS/EOS tokens that differ from the model config and generation config. The model config and generation config were aligned accordingly, being updated with the tokenizer's values. Updated tokens: {'eos_token_id': 248046}.
+  0% 0/30 [00:00<?, ?it/s][transformers] `causal_conv1d_fn` is falling back to its reference PyTorch implementation because `causal_conv1d` is not installed. This is correct but much slower; install `causal_conv1d` for the optimized kernel.
+[transformers] `chunk_gated_delta_rule` is falling back to its reference PyTorch implementation because `flash-linear-attention` is not installed. This is correct but much slower; install `flash-linear-attention` for the optimized kernel.
+{'loss': '2.163', 'grad_norm': 'nan', 'learning_rate': '9.966e-05', 'entropy': '1.177', 'num_tokens': '7479', 'mean_token_accuracy': '0.6559', 'epoch': '0.3556'}
+{'loss': '1.378', 'grad_norm': '2.482', 'learning_rate': '8.83e-05', 'entropy': '1.029', 'num_tokens': '1.49e+04', 'mean_token_accuracy': '0.7706', 'epoch': '0.7111'}
+{'loss': '0.1385', 'grad_norm': '0.6165', 'learning_rate': '6.434e-05', 'entropy': '0.2658', 'num_tokens': '2.095e+04', 'mean_token_accuracy': '0.9602', 'epoch': '1'}
+{'loss': '0.02859', 'grad_norm': '1.058', 'learning_rate': '3.566e-05', 'entropy': '0.03935', 'num_tokens': '2.843e+04', 'mean_token_accuracy': '0.9873', 'epoch': '1.356'}
+{'loss': '0.01695', 'grad_norm': '0.2966', 'learning_rate': '1.17e-05', 'entropy': '0.02176', 'num_tokens': '3.59e+04', 'mean_token_accuracy': '0.9936', 'epoch': '1.711'}
+{'loss': '0.02747', 'grad_norm': 'nan', 'learning_rate': '3.381e-07', 'entropy': '0.01549', 'num_tokens': '4.19e+04', 'mean_token_accuracy': '0.9957', 'epoch': '2'}
+{'train_runtime': '389.4', 'train_samples_per_second': '1.156', 'train_steps_per_second': '0.077', 'train_loss': '0.6255', 'epoch': '2'}
+100% 30/30 [06:29<00:00, 12.98s/it]
+train 390s  final loss 0.6255
+saved -> /content/Day21-Track3-Finetuning-Lab/adapters/correct
+{
+  "run": "correct",
+  "label": "all-linear · r=16 · LR 10x · 16-bit",
+  "tier": "T4",
+  "model": "unsloth/Qwen3.5-4B",
+  "precision": "fp16",
+  "placement": "text-linear",
+  "n_target_modules": 12,
+  "r": 16,
+  "lora_alpha": 32,
+  "learning_rate": 0.0001,
+  "load_in_4bit": false,
+  "trainable_params": 32464896,
+  "train_seconds": 389.9,
+  "peak_vram_gb": 8.78,
+  "final_loss": 0.6255,
+  "mask_mode": "assistant-only",
+  "max_steps": 30
+}
+
+-- NB3 ok in 446s
+
+========================================================================
+NB4 — three misconfiguration contrasts
+========================================================================
+Loading weights: 100% 426/426 [00:31<00:00, 13.43it/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+| placement | modules | r | trainable |
+|---|---|---|---|
+| text-linear | 12 | 16 | 32464896 |
+| attn-only(q,v) | 2 | 16 | 1835008 |
+| attn-only(q,v) matched | 2 | 283 | 32456704 |
+skip attn_only: adapters/attn_only/ already trained (FORCE_RETRAIN=1 to redo, or delete the directory)
+skip wrong_lr: adapters/wrong_lr/ already trained (FORCE_RETRAIN=1 to redo, or delete the directory)
+skip qlora: adapters/qlora/ already trained (FORCE_RETRAIN=1 to redo, or delete the directory)
+nothing retrained this session — reading runs.csv for the table
+| run | label | r | trainable_params | learning_rate | final_loss | train_seconds | peak_vram_gb |
+|---|---|---|---|---|---|---|---|
+| correct | all-linear · r=16 · LR 10x · 16-bit | 16 | 32464896 | 0.0001 | 0.6255 | 389.9 | 8.78 |
+| attn_only | q,v only · r=matched · LR 10x · 16-bit | 283 | 32456704 | 0.0001 | 0.538 | 258.5 | 8.79 |
+| wrong_lr | all-linear · r=16 · LR 1x (full-FT scale) · 16-bit | 16 | 32464896 | 1e-05 | 1.5702 | 396.9 | 8.78 |
+| qlora | all-linear · r=16 · LR 10x · 4-bit QLoRA | 16 | 32464896 | 0.0001 | 0.7058 | 468.7 | 3.86 |
+
+-- NB4 ok in 50s
+
+========================================================================
+NB5 — four-group eval + verdict
+========================================================================
+baseline (b) target = 0.765 — đây là mốc phải vượt
+Loading weights: 100% 426/426 [00:31<00:00, 13.68it/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[transformers] `causal_conv1d_fn` is falling back to its reference PyTorch implementation because `causal_conv1d` is not installed. This is correct but much slower; install `causal_conv1d` for the optimized kernel.
+[transformers] `chunk_gated_delta_rule` is falling back to its reference PyTorch implementation because `flash-linear-attention` is not installed. This is correct but much slower; install `flash-linear-attention` for the optimized kernel.
+[transformers] `causal_conv1d_update` is falling back to its reference PyTorch implementation because `causal_conv1d` is not installed. This is correct but much slower; install `causal_conv1d` for the optimized kernel.
+[transformers] `fused_recurrent_gated_delta_rule` is falling back to its reference PyTorch implementation because `flash-linear-attention` is not installed. This is correct but much slower; install `flash-linear-attention` for the optimized kernel.
+  [ft/target] batch 1/13      7s elapsed  ~   79s left
+  [ft/target] batch 2/13     12s elapsed  ~   65s left
+  [ft/target] batch 3/13     17s elapsed  ~   58s left
+  [ft/target] batch 4/13     22s elapsed  ~   50s left
+  [ft/target] batch 5/13     28s elapsed  ~   44s left
+  [ft/target] batch 6/13     33s elapsed  ~   38s left
+  [ft/target] batch 7/13     37s elapsed  ~   32s left
+  [ft/target] batch 8/13     43s elapsed  ~   27s left
+  [ft/target] batch 9/13     47s elapsed  ~   21s left
+  [ft/target] batch 10/13     53s elapsed  ~   16s left
+  [ft/target] batch 11/13     58s elapsed  ~   11s left
+  [ft/target] batch 12/13     63s elapsed  ~    5s left
+  [ft/target] batch 13/13     69s elapsed  ~    0s left
+  [ft/target] done: 50 prompts in 69s
+  [ft/regression] batch 1/4     10s elapsed  ~   31s left
+  [ft/regression] batch 2/4     21s elapsed  ~   21s left
+  [ft/regression] batch 3/4     28s elapsed  ~    9s left
+  [ft/regression] batch 4/4     40s elapsed  ~    0s left
+  [ft/regression] done: 15 prompts in 40s
+fine-tune: {'target': 0.97, 'regression': 0.5888888888888889, 'format': 1.0, 'latency_ms': 1373.8119178800296, 'n': 50, 'extra': {'valid_trace_rate': 0.0}}
+| run | target | regression | format | latency_ms | n |
+|---|---|---|---|---|---|
+| (a) base + naive prompt | 0.0 | 0.7911 | 0.0 | 3273.6 | 50 |
+| (b) base + optimized prompt | 0.765 | 0.7911 | 1.0 | 1043.2 | 50 |
+| (c) LoRA fine-tune | 0.97 | 0.5889 | 1.0 | 1373.8 | 50 |
+FAILED
+ - general capability regressed by 0.202 (tolerance 0.020). See deck §6.3 — add 1-5% replay data.
+Loading weights: 100% 426/426 [00:28<00:00, 15.09it/s]
+  [attn_only/target] batch 1/13      3s elapsed  ~   40s left
+  [attn_only/target] batch 2/13      7s elapsed  ~   37s left
+  [attn_only/target] batch 3/13     11s elapsed  ~   35s left
+  [attn_only/target] batch 4/13     14s elapsed  ~   31s left
+  [attn_only/target] batch 5/13     17s elapsed  ~   27s left
+  [attn_only/target] batch 6/13     20s elapsed  ~   24s left
+  [attn_only/target] batch 7/13     24s elapsed  ~   21s left
+  [attn_only/target] batch 8/13     27s elapsed  ~   17s left
+  [attn_only/target] batch 9/13     30s elapsed  ~   14s left
+  [attn_only/target] batch 10/13     34s elapsed  ~   10s left
+  [attn_only/target] batch 11/13     38s elapsed  ~    7s left
+  [attn_only/target] batch 12/13     41s elapsed  ~    3s left
+  [attn_only/target] batch 13/13     44s elapsed  ~    0s left
+  [attn_only/target] done: 50 prompts in 44s
+attn_only: target=0.970  format=1.000
+Loading weights: 100% 426/426 [00:27<00:00, 15.41it/s]
+  [wrong_lr/target] batch 1/13     20s elapsed  ~  238s left
+  [wrong_lr/target] batch 2/13     40s elapsed  ~  219s left
+  [wrong_lr/target] batch 3/13     60s elapsed  ~  199s left
+  [wrong_lr/target] batch 4/13     79s elapsed  ~  178s left
+  [wrong_lr/target] batch 5/13     99s elapsed  ~  159s left
+  [wrong_lr/target] batch 6/13    119s elapsed  ~  139s left
+  [wrong_lr/target] batch 7/13    139s elapsed  ~  119s left
+  [wrong_lr/target] batch 8/13    159s elapsed  ~   99s left
+  [wrong_lr/target] batch 9/13    179s elapsed  ~   79s left
+  [wrong_lr/target] batch 10/13    199s elapsed  ~   60s left
+  [wrong_lr/target] batch 11/13    219s elapsed  ~   40s left
+  [wrong_lr/target] batch 12/13    238s elapsed  ~   20s left
+  [wrong_lr/target] batch 13/13    258s elapsed  ~    0s left
+  [wrong_lr/target] done: 50 prompts in 258s
+wrong_lr: target=0.000  format=0.000
+Loading weights: 100% 426/426 [00:27<00:00, 15.39it/s]
+  [qlora/target] batch 1/13      7s elapsed  ~   88s left
+  [qlora/target] batch 2/13     14s elapsed  ~   78s left
+  [qlora/target] batch 3/13     21s elapsed  ~   70s left
+  [qlora/target] batch 4/13     28s elapsed  ~   62s left
+  [qlora/target] batch 5/13     34s elapsed  ~   55s left
+  [qlora/target] batch 6/13     41s elapsed  ~   48s left
+  [qlora/target] batch 7/13     47s elapsed  ~   40s left
+  [qlora/target] batch 8/13     54s elapsed  ~   34s left
+  [qlora/target] batch 9/13     60s elapsed  ~   27s left
+  [qlora/target] batch 10/13     67s elapsed  ~   20s left
+  [qlora/target] batch 11/13     74s elapsed  ~   13s left
+  [qlora/target] batch 12/13     81s elapsed  ~    7s left
+  [qlora/target] batch 13/13     88s elapsed  ~    0s left
+  [qlora/target] done: 50 prompts in 88s
+qlora: target=0.940  format=1.000
+
+| run | target | format | latency_ms | n |
+|---|---|---|---|---|
+| correct | 0.97 | 1.0 | 1373.8 | 50 |
+| attn_only | 0.97 | 1.0 | 881.8 | 50 |
+| wrong_lr | 0.0 | 0.0 | 5164.6 | 50 |
+| qlora | 0.94 | 1.0 | 1749.3 | 50 |
+--- 3 ca TỆ NHẤT (bắt buộc đưa vào report) ---
+| i | ticket | ft_score | ft_pred |
+|---|---|---|---|
+| 3 | Cho mình hỏi, mình đặt bình giữ nhiệt mã đơn VN804124. Chưa thấy tiền. | 0.75 | {"intent": "hoan_tien", "urgency": "trung_binh", "product": "bình giữ nhiệt", "sentiment": |
+| 5 | Shop ơi, mình đặt nồi chiên không dầu mã đơn DH249548. Thiếu phụ kiện. | 0.75 | {"intent": "san_pham_loi", "urgency": "trung_binh", "product": "nồi chiên không dầu", "sen |
+| 12 | Shop ơi, mình đặt áo khoác gió mã đơn VN613097. Bị lỗi. Khi nào tiện.  | 0.75 | {"intent": "san_pham_loi", "urgency": "trung_binh", "product": "áo khoác gió", "sentiment" |
+
+--- 3 ca TỐT NHẤT ---
+| i | ticket | ft_score | ft_pred |
+|---|---|---|---|
+| 47 | Cho mình hỏi, mình đặt ốp lưng điện thoại mã đơn DH936478. Shipper khô | 1.0 | {"intent": "van_chuyen", "urgency": "thap", "product": "ốp lưng điện thoại", "sentiment":  |
+| 48 | Alo shop, mình đặt ốp lưng điện thoại mã đơn DH734695. Giá bao nhiêu.  | 1.0 | {"intent": "hoi_thong_tin", "urgency": "trung_binh", "product": "ốp lưng điện thoại", "sen |
+| 49 | Chào shop, mình đặt ốp lưng điện thoại mã đơn VN833689. Sai màu. Sớm n | 1.0 | {"intent": "san_pham_loi", "urgency": "trung_binh", "product": "ốp lưng điện thoại", "sent |
+
+-- NB5 ok in 644s
+
+----------------------------------------
+stage timings
+  nb1        11s  (0.2 min)
+  nb2       319s  (5.3 min)
+  nb3       446s  (7.4 min)
+  nb4        50s  (0.8 min)
+  nb5       644s  (10.7 min)
+  total    1470s (24.5 min)

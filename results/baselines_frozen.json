@@ -3,23 +3,23 @@
   "model": "unsloth/Qwen3.5-4B",
   "baseline_a": {
     "target": 0.0,
-    "regression": 0.75,
+    "regression": 0.7911111111111111,
     "format": 0.0,
-    "latency_ms": 3374.1768852499945,
-    "n": 8,
+    "latency_ms": 3273.6263881400378,
+    "n": 50,
     "extra": {}
   },
   "baseline_b": {
-    "target": 0.6875,
-    "regression": 0.75,
+    "target": 0.765,
+    "regression": 0.7911111111111111,
     "format": 1.0,
-    "latency_ms": 936.9015866249981,
-    "n": 8,
+    "latency_ms": 1043.1848367400016,
+    "n": 50,
     "extra": {}
   },
   "optimized_prompt_sha": "719e74d3b6232053",
-  "n_target": 8,
-  "n_regression": 8,
-  "eval_limit": 8,
-  "smoke_mode": true
+  "n_target": 50,
+  "n_regression": 15,
+  "eval_limit": null,
+  "smoke_mode": false
 }
