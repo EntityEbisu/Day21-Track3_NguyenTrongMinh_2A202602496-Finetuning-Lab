@@ -23,7 +23,16 @@ AUTOPSY_COLS = ["run", "target", "format", "latency_ms", "n"]
 
 
 def load_results(results_dir: pathlib.Path = RESULTS) -> dict:
-    """Everything the report needs, in one dict. Missing files become None."""
+    """Everything the report needs, in one dict. Missing files become None.
+
+    `runs` is collapsed to the LAST row per `run` key. `report.append_row` appends
+    rather than upserts, and NB4 reads the last row per key when it prints its table
+    ("Rows are appended, so the last one per key is the current one"). A resumed
+    session retrains `correct` while NB4 skips the contrasts it finds on disk, so
+    runs.csv legitimately holds two `correct` rows -- and the earlier one describes
+    an adapter that no longer exists. Showing both would put a dead adapter's loss
+    in the report.
+    """
     def j(name):
         p = results_dir / name
         return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
@@ -31,7 +40,11 @@ def load_results(results_dir: pathlib.Path = RESULTS) -> dict:
     rows: list[dict] = []
     p = results_dir / "runs.csv"
     if p.exists():
-        rows = list(csv.DictReader(p.open(encoding="utf-8")))
+        raw = list(csv.DictReader(p.open(encoding="utf-8")))
+        latest: dict[str, dict] = {}
+        for r in raw:
+            latest[r.get("run") or f"__row{len(latest)}"] = r
+        rows = list(latest.values())
     return {
         "runs": rows,
         "verdict": j("verdict.json"),

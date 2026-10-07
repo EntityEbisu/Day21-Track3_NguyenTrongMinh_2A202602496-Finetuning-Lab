@@ -61,3 +61,45 @@ def test_check_can_actually_fail():
     bad = json.loads(json.dumps(good))
     bad["autopsy"][0]["target"] = 0.4242
     assert report_tables.check_missing(report_tables.render_all(good), bad) != []
+
+
+def test_runs_table_collapses_a_repeated_run_to_its_last_row(tmp_path):
+    """NB4 appends a fresh row each time a run executes and reads the LAST per key.
+
+    A resumed session retrains `correct` while NB4 skips the three contrasts
+    ("skip attn_only: adapters/attn_only/ already trained"), so runs.csv ends up
+    holding two `correct` rows. Showing both would put a stale adapter's loss in
+    the report table, and the stale adapter no longer exists on disk.
+    """
+    from tools import report_tables
+
+    (tmp_path / "runs.csv").write_text(
+        "run,final_loss,peak_vram_gb,trainable_params\n"
+        "correct,0.6274,8.78,32464896\n"
+        "attn_only,0.538,8.79,32456704\n"
+        "correct,0.6255,8.78,32464896\n",
+        encoding="utf-8",
+    )
+    data = report_tables.load_results(tmp_path)
+    md = report_tables.runs_table(data)
+
+    assert md.count("| correct |") == 1, "a repeated run must appear once"
+    assert "0.6255" in md, "the LAST row per run is the live one"
+    assert "0.6274" not in md, "the superseded row must not be shown"
+    assert "attn_only" in md, "collapsing must not drop the other runs"
+
+
+def test_check_missing_uses_the_collapsed_runs(tmp_path):
+    """Otherwise it demands the superseded number be present in the report."""
+    from tools import report_tables
+
+    (tmp_path / "runs.csv").write_text(
+        "run,final_loss,peak_vram_gb,trainable_params\n"
+        "correct,0.6274,8.78,32464896\n"
+        "correct,0.6255,8.78,32464896\n",
+        encoding="utf-8",
+    )
+    data = report_tables.load_results(tmp_path)
+    missing = report_tables.check_missing("0.6255 32464896 8.78", data)
+    assert missing == [], f"stale row leaked into the check: {missing}"
+
