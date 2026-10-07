@@ -1,0 +1,19 @@
+# Line-ending policy.
+#
+# `scripts/verify.py` hashes the raw BYTES of data/*.jsonl against
+# data/checksums.json. Those checksums were computed on Linux (LF). With
+# core.autocrlf=true — the default on this Windows checkout — git rewrites the
+# working tree to CRLF on checkout, the hashes no longer match, and verify.py
+# reports a FAILING `eval sets unmodified` on a corpus nobody touched.
+#
+# `-text` disables eol conversion entirely for these paths, so every platform
+# gets the exact bytes that were checksummed. The alternative — regenerating
+# checksums per platform — would make the checksum meaningless as a
+# "the eval set did not change" guarantee, which is the whole point of it.
+data/*.jsonl -text
+data/checksums.json -text
+data/split/*.jsonl -text
+
+# Notebooks write these; keep them byte-stable too.
+results/*.json -text
+results/*.csv -text
